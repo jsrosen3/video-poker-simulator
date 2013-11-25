@@ -1,4 +1,4 @@
-=video-poker-simulator
+Video Poker Simulator
 =====================
 
 Welcome! Here's how this simulator works:
