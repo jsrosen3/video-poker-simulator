@@ -38,6 +38,16 @@ class Deck
 end
 
 class Hand
+  HAND_SCORES = {"Royal Flush" => 250,
+                 "Straight Flush" => 50,
+                 "Four of a Kind" => 25,
+                 "Full House" => 9,
+                 "Flush" => 6,
+                 "Straight" => 4,
+                 "Three of a Kind" => 3,
+                 "Two Pair" => 2,
+                 "Jacks or better" => 1}
+
   def initialize(hand)
     @hand = hand
   end
@@ -53,23 +63,25 @@ class Hand
   
   def score
     if straight? && flush?
-      return 8
+      card_numbers = self.map { |card| card.number }.sort
+      return (card_numbers == [10, 11, 12, 13, 14] ? HAND_SCORES["Royal Flush"] : HAND_SCORES["Straight Flush"])
     elsif straight?
-      return 4
+      return HAND_SCORES["Straight"]
     elsif flush?
-      return 5
+      return HAND_SCORES["Flush"]
     end
+
     freqs = get_frequencies.values.sort
     if freqs == [1,4]
-      return 7
+      return HAND_SCORES["Four of a Kind"]
     elsif freqs == [2,3]
-      return 6
+      return HAND_SCORES["Full House"]
     elsif freqs == [1,1,3]
-      return 3
+      return HAND_SCORES["Three of a Kind"]
     elsif freqs == [2,2]
-      return 2
+      return HAND_SCORES["Two Pair"]
     elsif freqs == [1,1,1,2]
-      return 1
+      return HAND_SCORES["Jacks or Better"]
     else
       return 0
     end
@@ -94,36 +106,27 @@ class Hand
   end 
 end
 
+
+
+
+
+
+
 class Player
-  attr_accessor :hand, :money, :name
+  attr_accessor :hand
   
-  def initialize(name, money)
-    @name = name
-    @money = money
+  def initialize(name)
     @hand = nil
+    @name = name
   end
   
   def choose_cards_to_remove
     p @hand
-    puts "#{@name.capitalize}, please enter the indices of the cards"
-    puts "that you wish to discard. (Format: 1,3,4)"
-    input = gets.chomp.split(',').map! { |num| num.to_i - 1 }
-    if input.length > 3
-      puts "You can only exchange three or fewer cards." 
-      choose_cards_to_remove
-    end
+    puts "#{@name}, please enter the indices of the cards to discard."
+    puts "(Example: 1,3,4)"
+    cards_to_remove = gets.chomp.split(',').map! { |num| num.to_i - 1 }
   end
-  
-  def bet
-    p @hand
-    puts "#{@name.capitalize}, would you like to bet, raise or fold? (b,r,f)"
-    input = gets.chomp.to_s
-    unless ['b','r','f'].include?(input)
-      puts "error: invalid move"
-      bet
-    end
-  end
-  
+
 end
 
 
@@ -133,102 +136,61 @@ class Game
   def initialize
     @deck = Deck.new
     @players = get_players
-    @pot = 0
   end
   
   def get_players
     players = []
     puts "Enter the player's name. If no more players, enter 'done'."
-    input = gets.chomp
-    until input == 'done' && players.length >= 2
-      players << Player.new(input, 100)
+    name = gets.chomp
+    until name == 'done'
+      players << Player.new(name)
       puts "Enter the player's name. If no more players, enter 'done'."
-      input = gets.chomp
+      name = gets.chomp
     end
     players
   end
   
   def play
     deal_cards
-    #betting_round
-    exchange_cards
-    #betting_round
-    report_winners
+    cards_to_remove = get_cards_to_remove
+    scores = score_all_hands(cards_to_remove)
+    report_scores(scores)
   end
   
   def deal_cards
     @players.each { |player| player.hand = @deck.deal_hand }
-    
   end
   
-  def betting_round(players_to_bet= @players, pot = 0)
-    bet = 
-    until players_to_bet.empty?
-      current_player = players_to_bet.shift
-      case current_player.bet
-      when "b"
-        bet = play_bet(current_player)
-      when "r"
-        play_raise
-      when "f"
-        play_fold
-      end
+  def get_cards_to_remove
+    cards_to_remove = {}
+    @players.each do |player|
+      cards_to_remove[player] = player.choose_cards_to_remove
     end
-  end
-  
-  def play_bet(player)
-    puts "How much would you like to bet?"
-    bet = gets.chomp.to_i
-    unless bet.is_a?(Integer) && bet >= 0 && bet <= player.money
-      puts "not a valid amount"
-      play_bet(player)
-    end 
-    @pot += bet
-    player.money -= bet
-    return bet
-  end
-  
-  def play_raise(player)
-    puts "How much would you like to raise?"
-    bet = gets.chomp.to_i
-    unless bet.is_a?(Integer) && bet >= 0 && bet <= player.money
-      puts "not a valid amount"
-      play_bet(player)
-    end 
-    @pot += (bet + the_raise)
-    player.money -= (bet + the_raise)
-    return bet
-  end
-  
-  def play_fold(player)
-    puts "You're a quitter."
+    cards_to_remove
   end
 
-  def exchange_cards
+  def score_all_hands(cards_to_remove)
+    scores = {}
     @players.each do |player|
-      indices = player.choose_cards_to_remove
-      player.hand = player.hand.update_cards(indices, @deck)
-    end
-  end
-  
-  def report_winners
-    winning_players = [@players[0]]
-    highest_score = @players[0].hand.score
-    @players.each do |player|
-      next if player == @players.first
-      if player.hand.score == highest_score
-        winning_players << player
-      elsif player.hand.score > highest_score
-        highest_score = player.hand.score
-        winning_players = [player]
+      player_score = 0
+      1000.times do
+        player_score += score_hand_once(player, cards_to_remove[player])
       end
+      player_score /= 1000.0
+      scores[player] = player_score
     end
-    winning_names = winning_players.map(&:name).join(' and ')
-    puts "Congratulations, #{winning_names}!"
-    # pot_share = pot / winning_players.length
-    # winning_players.each { |winner| winner.money += pot_share }
-    nil
+    scores
   end
-  
+
+  def score_hand_once(player, cards_to_remove)
+    permanent_deck = @deck
+    score = player.hand.update_cards(cards_to_remove, @deck).score
+    @deck = permanent_deck
+    score
+  end
+
+  def report_scores(scores)
+    scores.each { |player, score| puts "#{player.name}'s score: #{score.round(2)}"
+  end
 end
 
