@@ -1,4 +1,6 @@
 class Hand
+  attr_accessor :hand
+
   HAND_SCORES = {"Royal Flush" => 250,
                  "Straight Flush" => 50,
                  "Four of a Kind" => 25,
@@ -50,6 +52,8 @@ class Hand
     end
   end
   
+  private
+
   def get_frequencies
     frequencies = Hash.new(0)
     nums = @hand.map { |card| card.number }

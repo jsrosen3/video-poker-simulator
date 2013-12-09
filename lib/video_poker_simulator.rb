@@ -1,7 +1,5 @@
-require './card.rb'
-require './deck.rb'
-require './hand.rb'
-require './player.rb'
+require 'deck.rb'
+require 'player.rb'
 
 class Game
   NUM_SIMULATIONS = 20000

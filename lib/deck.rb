@@ -1,3 +1,6 @@
+require 'card.rb'
+require 'hand.rb'
+
 class Deck
   attr_accessor :deck
   
